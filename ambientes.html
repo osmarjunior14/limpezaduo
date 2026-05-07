@@ -9,161 +9,216 @@
 
   <style>
     body{
-      font-family:Arial, sans-serif;
+      margin:0;
+      padding:20px;
       background:#0f172a;
       color:white;
-      padding:20px;
-      margin:0;
+      font-family:Arial,sans-serif;
     }
 
     h1{
-      margin-bottom:20px;
+      margin-bottom:6px;
     }
 
-    .form{
-      background:#1e293b;
-      padding:16px;
-      border-radius:12px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      max-width:520px;
+    .sub{
+      color:#94a3b8;
       margin-bottom:24px;
     }
 
-    input, select, button{
+    .box{
+      background:#1e293b;
+      border-radius:14px;
+      padding:18px;
+      margin-bottom:20px;
+    }
+
+    input,
+    select,
+    textarea{
+      width:100%;
       padding:12px;
       border:none;
-      border-radius:8px;
+      border-radius:10px;
+      margin-bottom:12px;
+      box-sizing:border-box;
       font-size:15px;
     }
 
     button{
-      background:#22c55e;
-      color:white;
-      font-weight:bold;
+      border:none;
+      border-radius:10px;
+      padding:12px;
       cursor:pointer;
+      font-weight:bold;
+      font-size:15px;
     }
 
-    .bloco{
-      background:#1e293b;
-      padding:16px;
-      border-radius:12px;
-      margin-top:16px;
+    .btn-salvar{
+      width:100%;
+      background:#22c55e;
+      color:white;
+    }
+
+    .lista{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:14px;
     }
 
     .item{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:12px 0;
-      border-bottom:1px solid #334155;
+      background:#1e293b;
+      border-radius:14px;
+      overflow:hidden;
     }
 
-    .item:last-child{
-      border-bottom:none;
-    }
-
-    .foto{
-      width:70px;
-      height:70px;
-      border-radius:10px;
+    .item img{
+      width:100%;
+      height:220px;
       object-fit:cover;
       background:#0f172a;
-      flex-shrink:0;
     }
 
-    .info{
-      flex:1;
+    .conteudo{
+      padding:14px;
     }
 
-    .info strong{
+    .conteudo strong{
       display:block;
+      font-size:18px;
       margin-bottom:4px;
     }
 
-    .info small{
+    .conteudo small{
       color:#94a3b8;
+    }
+
+    .acoes{
+      display:flex;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .btn-editar{
+      flex:1;
+      background:#f59e0b;
+      color:white;
+    }
+
+    .btn-apagar{
+      flex:1;
+      background:#ef4444;
+      color:white;
     }
 
     .vazio{
       color:#94a3b8;
       font-style:italic;
     }
+
+    .modal{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.85);
+      z-index:9999;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    .modal img{
+      max-width:95vw;
+      max-height:90vh;
+      border-radius:14px;
+    }
   </style>
 </head>
 <body>
 
-<h1>🧼 Cadastro de Ambientes</h1>
+<h1>🏢 Cadastro de Ambientes</h1>
+<div class="sub">Gerencie os ambientes da limpeza.</div>
 
-<div class="form">
+<div class="box">
+
+  <input type="text" id="nome" placeholder="Nome do ambiente">
+
   <select id="unidade">
+    <option value="">Selecione a unidade</option>
     <option value="DUO HELIÓPOLIS">DUO HELIÓPOLIS</option>
     <option value="DUO CENTRO">DUO CENTRO</option>
   </select>
 
-  <input id="nome" placeholder="Nome do ambiente. Ex: Banheiro masculino">
+  <input type="file" id="foto" accept="image/*">
 
-  <input id="foto" type="file" accept="image/*">
+  <button class="btn-salvar" onclick="salvarAmbiente()">
+    Salvar ambiente
+  </button>
 
-  <button onclick="salvarAmbiente()">Salvar ambiente</button>
 </div>
 
-<h2>Ambientes cadastrados</h2>
-<div id="lista" class="bloco"></div>
+<div id="lista" class="lista"></div>
+
+<div id="modalFoto" class="modal" onclick="fecharModal()">
+  <img id="imgModal" src="">
+</div>
 
 <script>
   const supabaseUrl = "https://chyomxetiloktyepjbtk.supabase.co";
   const supabaseKey = "sb_publishable_ZuuKIqmGotY08ZepHonxHg_3IOjs6pI";
-  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-  function normalizarNomeArquivo(texto){
-    return String(texto || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\\u0300-\\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+  const supabaseClient = window.supabase.createClient(
+    supabaseUrl,
+    supabaseKey
+  );
+
+  const senhaAdmin = "7c9446a1";
+
+  function abrirModal(url){
+    document.getElementById("imgModal").src = url;
+    document.getElementById("modalFoto").style.display = "flex";
+  }
+
+  function fecharModal(){
+    document.getElementById("modalFoto").style.display = "none";
+    document.getElementById("imgModal").src = "";
   }
 
   async function salvarAmbiente(){
-    const unidade = document.getElementById("unidade").value;
+
     const nome = document.getElementById("nome").value.trim();
-    const fotoInput = document.getElementById("foto");
+    const unidade = document.getElementById("unidade").value;
+    const foto = document.getElementById("foto").files[0];
 
     if(!nome){
-      alert("Informe o nome do ambiente.");
+      alert("Digite o nome do ambiente.");
       return;
     }
 
-    if(!fotoInput.files || fotoInput.files.length === 0){
-      alert("Selecione uma foto do ambiente.");
+    if(!unidade){
+      alert("Selecione a unidade.");
       return;
     }
 
-    const arquivo = fotoInput.files[0];
-    const extensao = arquivo.name.split(".").pop().toLowerCase();
-    const nomeBase = normalizarNomeArquivo(`${unidade}-${nome}-${Date.now()}`);
-    const caminhoArquivo = `ambientes/${nomeBase}.${extensao}`;
+    if(!foto){
+      alert("Selecione uma foto.");
+      return;
+    }
 
-    const { error: uploadError } = await supabaseClient
-      .storage
-      .from("limpeza")
-      .upload(caminhoArquivo, arquivo, {
-        cacheControl: "3600",
-        upsert: false
-      });
+    const nomeArquivo = `${Date.now()}-${foto.name}`;
 
-    if(uploadError){
-      console.log("Erro ao enviar foto:", uploadError);
+    const { error: erroUpload } = await supabaseClient.storage
+      .from("ambientes")
+      .upload(nomeArquivo, foto);
+
+    if(erroUpload){
+      console.log(erroUpload);
       alert("Erro ao enviar foto.");
       return;
     }
 
-    const { data: urlData } = supabaseClient
-      .storage
-      .from("limpeza")
-      .getPublicUrl(caminhoArquivo);
+    const { data: urlData } = supabaseClient.storage
+      .from("ambientes")
+      .getPublicUrl(nomeArquivo);
 
     const fotoUrl = urlData.publicUrl;
 
@@ -174,12 +229,12 @@
           nome,
           unidade,
           foto_referencia_url: fotoUrl,
-          ativo: true
+          ativo:true
         }
       ]);
 
     if(error){
-      console.log("Erro ao salvar ambiente:", error);
+      console.log(error);
       alert("Erro ao salvar ambiente.");
       return;
     }
@@ -187,44 +242,170 @@
     alert("Ambiente cadastrado com sucesso.");
 
     document.getElementById("nome").value = "";
+    document.getElementById("unidade").value = "";
     document.getElementById("foto").value = "";
 
     carregarAmbientes();
   }
 
   async function carregarAmbientes(){
+
     const { data, error } = await supabaseClient
       .from("ambientes_limpeza")
       .select("*")
       .eq("ativo", true)
-      .order("unidade")
       .order("nome");
 
-    const lista = document.getElementById("lista");
-
     if(error){
-      console.log("Erro ao carregar ambientes:", error);
-      lista.innerHTML = `<div class="vazio">Erro ao carregar ambientes.</div>`;
+      console.log(error);
       return;
     }
 
+    const lista = document.getElementById("lista");
+
     if(!data || data.length === 0){
-      lista.innerHTML = `<div class="vazio">Nenhum ambiente cadastrado.</div>`;
+      lista.innerHTML = `
+        <div class="vazio">
+          Nenhum ambiente cadastrado.
+        </div>
+      `;
       return;
     }
 
     lista.innerHTML = data.map(item => `
       <div class="item">
-        <img class="foto" src="${item.foto_referencia_url || ""}" onerror="this.style.display='none'">
-        <div class="info">
+
+        <img
+          src="${item.foto_referencia_url || ""}"
+          onclick="abrirModal('${item.foto_referencia_url || ""}')"
+          onerror="this.style.display='none'"
+        >
+
+        <div class="conteudo">
+
           <strong>${item.nome}</strong>
+
           <small>${item.unidade}</small>
+
+          <div class="acoes">
+
+            <button
+              class="btn-editar"
+              onclick="editarAmbiente(
+                '${item.id}',
+                '${String(item.nome || "").replace(/'/g, "\\'")}',
+                '${String(item.unidade || "").replace(/'/g, "\\'")}'
+              )"
+            >
+              Editar
+            </button>
+
+            <button
+              class="btn-apagar"
+              onclick="apagarAmbiente('${item.id}')"
+            >
+              Apagar
+            </button>
+
+          </div>
+
         </div>
+
       </div>
     `).join("");
   }
 
+  async function editarAmbiente(id, nomeAtual, unidadeAtual){
+
+    const senha = prompt("Digite a senha para editar:");
+
+    if(senha !== senhaAdmin){
+      alert("Senha incorreta.");
+      return;
+    }
+
+    const novoNome = prompt("Nome do ambiente:", nomeAtual);
+
+    if(novoNome === null) return;
+
+    const novaUnidade = prompt("Unidade:", unidadeAtual);
+
+    if(novaUnidade === null) return;
+
+    if(!novoNome.trim()){
+      alert("Nome inválido.");
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from("ambientes_limpeza")
+      .update({
+        nome: novoNome.trim(),
+        unidade: novaUnidade.trim()
+      })
+      .eq("id", id);
+
+    if(error){
+      console.log(error);
+      alert("Erro ao editar ambiente.");
+      return;
+    }
+
+    alert("Ambiente editado com sucesso.");
+
+    carregarAmbientes();
+  }
+
+  async function apagarAmbiente(id){
+
+    const senha = prompt("Digite a senha para apagar o ambiente:");
+
+    if(senha !== senhaAdmin){
+      alert("Senha incorreta.");
+      return;
+    }
+
+    const confirmar = confirm(
+      "Deseja remover este ambiente?"
+    );
+
+    if(!confirmar) return;
+
+    const { error } = await supabaseClient
+      .from("ambientes_limpeza")
+      .update({
+        ativo:false
+      })
+      .eq("id", id);
+
+    if(error){
+      console.log(error);
+      alert("Erro ao remover ambiente.");
+      return;
+    }
+
+    alert("Ambiente removido.");
+
+    carregarAmbientes();
+  }
+
   carregarAmbientes();
+
+  supabaseClient
+    .channel("realtime-ambientes")
+    .on(
+      "postgres_changes",
+      {
+        event:"*",
+        schema:"public",
+        table:"ambientes_limpeza"
+      },
+      () => {
+        carregarAmbientes();
+      }
+    )
+    .subscribe();
+
 </script>
 
 </body>
