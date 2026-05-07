@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checklist de Limpeza</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body{
+      font-family:Arial, sans-serif;
+      background:#0f172a;
+      color:white;
+      padding:18px;
+      margin:0;
+    }
+
+    h1{
+      margin-bottom:8px;
+    }
+
+    .sub{
+      color:#94a3b8;
+      margin-bottom:20px;
+    }
+
+    .ambiente{
+      background:#1e293b;
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:14px;
+    }
+
+    .topo{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+
+    .foto{
+      width:86px;
+      height:86px;
+      object-fit:cover;
+      border-radius:12px;
+      background:#0f172a;
+      flex-shrink:0;
+    }
+
+    .info strong{
+      display:block;
+      font-size:18px;
+      margin-bottom:4px;
+    }
+
+    .info small{
+      color:#94a3b8;
+    }
+
+    input, textarea, button{
+      width:100%;
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      font-size:15px;
+      margin-top:8px;
+      box-sizing:border-box;
+    }
+
+    textarea{
+      resize:none;
+      min-height:70px;
+    }
+
+    button{
+      background:#22c55e;
+      color:white;
+      font-weight:bold;
+      cursor:pointer;
+    }
+
+    button:disabled{
+      opacity:.7;
+      cursor:not-allowed;
+    }
+
+    .feito{
+      margin-top:10px;
+      color:#86efac;
+      font-weight:bold;
+    }
+
+    .vazio{
+      background:#1e293b;
+      color:#94a3b8;
+      border-radius:12px;
+      padding:16px;
+      font-style:italic;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧼 Checklist de Limpeza</h1>
+<div class="sub">Registre os ambientes limpos com foto.</div>
+
+<div id="lista"></div>
+
+<script>
+  const supabaseUrl = "https://chyomxetiloktyepjbtk.supabase.co";
+  const supabaseKey = "sb_publishable_ZuuKIqmGotY08ZepHonxHg_3IOjs6pI";
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  function normalizarNomeArquivo(texto){
+    return String(texto || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  async function carregarAmbientes(){
+    const { data, error } = await supabaseClient
+      .from("ambientes_limpeza")
+      .select("*")
+      .eq("ativo", true)
+      .order("unidade")
+      .order("nome");
+
+    const lista = document.getElementById("lista");
+
+    if(error){
+      console.log("Erro ao carregar ambientes:", error);
+      lista.innerHTML = `<div class="vazio">Erro ao carregar ambientes.</div>`;
+      return;
+    }
+
+    if(!data || data.length === 0){
+      lista.innerHTML = `<div class="vazio">Nenhum ambiente cadastrado.</div>`;
+      return;
+    }
+
+    lista.innerHTML = data.map(item => `
+      <div class="ambiente" id="ambiente-${item.id}">
+        <div class="topo">
+          <img class="foto" src="${item.foto_referencia_url || ""}" onerror="this.style.display='none'">
+          <div class="info">
+            <strong>${item.nome}</strong>
+            <small>${item.unidade}</small>
+          </div>
+        </div>
+
+        <input id="resp-${item.id}" placeholder="Nome de quem limpou">
+
+        <input id="foto-${item.id}" type="file" accept="image/*" capture="environment">
+
+        <textarea id="obs-${item.id}" placeholder="Observação opcional"></textarea>
+
+        <button id="btn-${item.id}" onclick="registrarLimpeza('${item.id}', '${item.nome}')">
+          Marcar como limpo
+        </button>
+
+        <div id="status-${item.id}"></div>
+      </div>
+    `).join("");
+  }
+
+  async function registrarLimpeza(ambienteId, nomeAmbiente){
+    const responsavel = document.getElementById(`resp-${ambienteId}`).value.trim();
+    const fotoInput = document.getElementById(`foto-${ambienteId}`);
+    const observacao = document.getElementById(`obs-${ambienteId}`).value.trim();
+    const botao = document.getElementById(`btn-${ambienteId}`);
+    const status = document.getElementById(`status-${ambienteId}`);
+
+    if(!responsavel){
+      alert("Informe o nome de quem limpou.");
+      return;
+    }
+
+    if(!fotoInput.files || fotoInput.files.length === 0){
+      alert("Envie uma foto do ambiente limpo.");
+      return;
+    }
+
+    botao.disabled = true;
+    botao.textContent = "Enviando...";
+
+    const arquivo = fotoInput.files[0];
+    const extensao = arquivo.name.split(".").pop().toLowerCase();
+    const nomeBase = normalizarNomeArquivo(`${nomeAmbiente}-${responsavel}-${Date.now()}`);
+    const caminhoArquivo = `limpezas/${nomeBase}.${extensao}`;
+
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from("limpeza")
+      .upload(caminhoArquivo, arquivo, {
+        cacheControl: "3600",
+        upsert: false
+      });
+
+    if(uploadError){
+      console.log("Erro ao enviar foto:", uploadError);
+      alert("Erro ao enviar foto.");
+      botao.disabled = false;
+      botao.textContent = "Marcar como limpo";
+      return;
+    }
+
+    const { data: urlData } = supabaseClient
+      .storage
+      .from("limpeza")
+      .getPublicUrl(caminhoArquivo);
+
+    const fotoUrl = urlData.publicUrl;
+
+    const { error } = await supabaseClient
+      .from("checklist_limpeza")
+      .insert([
+        {
+          ambiente_id: ambienteId,
+          responsavel,
+          foto_limpeza_url: fotoUrl,
+          observacao,
+          status: "feito",
+          data: new Date().toISOString()
+        }
+      ]);
+
+    if(error){
+      console.log("Erro ao salvar limpeza:", error);
+      alert("Erro ao salvar limpeza.");
+      botao.disabled = false;
+      botao.textContent = "Marcar como limpo";
+      return;
+    }
+
+    status.innerHTML = `<div class="feito">✅ Limpeza registrada com sucesso.</div>`;
+    botao.textContent = "Registrado";
+  }
+
+  carregarAmbientes();
+</script>
+
+</body>
+</html>
