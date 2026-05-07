@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel de Limpeza</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body{
+      margin:0;
+      padding:20px;
+      background:#0f172a;
+      color:white;
+      font-family:Arial, sans-serif;
+    }
+
+    h1{
+      margin-bottom:6px;
+    }
+
+    .sub{
+      color:#94a3b8;
+      margin-bottom:24px;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+      gap:14px;
+      margin-bottom:24px;
+    }
+
+    .card{
+      background:#1e293b;
+      border-radius:14px;
+      padding:18px;
+    }
+
+    .card span{
+      display:block;
+      font-size:38px;
+      font-weight:900;
+      margin-top:8px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+    }
+
+    .coluna{
+      background:#1e293b;
+      border-radius:14px;
+      padding:16px;
+    }
+
+    .coluna h2{
+      margin-top:0;
+      margin-bottom:16px;
+    }
+
+    .item{
+      background:#0f172a;
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:12px;
+    }
+
+    .topo{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:10px;
+    }
+
+    .foto{
+      width:72px;
+      height:72px;
+      object-fit:cover;
+      border-radius:10px;
+      background:#1e293b;
+      flex-shrink:0;
+      cursor:pointer;
+    }
+
+    .info strong{
+      display:block;
+      margin-bottom:4px;
+      font-size:16px;
+    }
+
+    .info small{
+      color:#94a3b8;
+    }
+
+    .foto-limpeza{
+      width:100%;
+      border-radius:12px;
+      margin-top:10px;
+      cursor:pointer;
+    }
+
+    .vazio{
+      color:#94a3b8;
+      font-style:italic;
+    }
+
+    .modal{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.8);
+      z-index:9999;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    .modal img{
+      max-width:95vw;
+      max-height:90vh;
+      border-radius:14px;
+    }
+
+    @media(max-width:900px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧼 Painel de Limpeza</h1>
+<div class="sub">Acompanhamento das limpezas realizadas.</div>
+
+<div class="cards">
+  <div class="card">
+    Ambientes cadastrados
+    <span id="totalAmbientes">0</span>
+  </div>
+
+  <div class="card">
+    Limpezas hoje
+    <span id="totalHoje">0</span>
+  </div>
+
+  <div class="card">
+    Pendentes hoje
+    <span id="pendentes">0</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <div class="coluna">
+    <h2>✅ Limpos hoje</h2>
+    <div id="listaLimpos"></div>
+  </div>
+
+  <div class="coluna">
+    <h2>⚠️ Pendentes</h2>
+    <div id="listaPendentes"></div>
+  </div>
+
+</div>
+
+<div id="modalFoto" class="modal" onclick="fecharModal()">
+  <img id="imgModal" src="">
+</div>
+
+<script>
+  const supabaseUrl = "https://chyomxetiloktyepjbtk.supabase.co";
+  const supabaseKey = "sb_publishable_ZuuKIqmGotY08ZepHonxHg_3IOjs6pI";
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  function abrirModal(url){
+    document.getElementById("imgModal").src = url;
+    document.getElementById("modalFoto").style.display = "flex";
+  }
+
+  function fecharModal(){
+    document.getElementById("modalFoto").style.display = "none";
+  }
+
+  function ehHoje(dataString){
+    const data = new Date(dataString);
+
+    const hoje = new Date();
+
+    return (
+      data.getDate() === hoje.getDate() &&
+      data.getMonth() === hoje.getMonth() &&
+      data.getFullYear() === hoje.getFullYear()
+    );
+  }
+
+  async function carregar(){
+    const { data: ambientes } = await supabaseClient
+      .from("ambientes_limpeza")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome");
+
+    const { data: limpezas } = await supabaseClient
+      .from("checklist_limpeza")
+      .select("*")
+      .order("data", { ascending:false });
+
+    const listaLimpos = document.getElementById("listaLimpos");
+    const listaPendentes = document.getElementById("listaPendentes");
+
+    const limpezasHoje = (limpezas || []).filter(item => ehHoje(item.data));
+
+    document.getElementById("totalAmbientes").textContent = ambientes?.length || 0;
+    document.getElementById("totalHoje").textContent = limpezasHoje.length;
+
+    const ambientesLimposHoje = limpezasHoje.map(item => item.ambiente_id);
+
+    const pendentes = (ambientes || []).filter(item =>
+      !ambientesLimposHoje.includes(item.id)
+    );
+
+    document.getElementById("pendentes").textContent = pendentes.length;
+
+    if(limpezasHoje.length === 0){
+      listaLimpos.innerHTML = `<div class="vazio">Nenhuma limpeza registrada hoje.</div>`;
+    } else {
+      listaLimpos.innerHTML = limpezasHoje.map(item => {
+
+        const ambiente = ambientes.find(a => a.id === item.ambiente_id);
+
+        return `
+          <div class="item">
+
+            <div class="topo">
+              <img
+                class="foto"
+                src="${ambiente?.foto_referencia_url || ""}"
+                onclick="abrirModal('${ambiente?.foto_referencia_url || ""}')"
+              >
+
+              <div class="info">
+                <strong>${ambiente?.nome || "Ambiente"}</strong>
+                <small>${ambiente?.unidade || ""}</small>
+              </div>
+            </div>
+
+            <div><strong>Responsável:</strong> ${item.responsavel}</div>
+
+            <div style="margin-top:6px;">
+              <strong>Horário:</strong>
+              ${new Date(item.data).toLocaleString("pt-BR")}
+            </div>
+
+            ${
+              item.observacao
+              ? `<div style="margin-top:6px;"><strong>Obs:</strong> ${item.observacao}</div>`
+              : ""
+            }
+
+            <img
+              class="foto-limpeza"
+              src="${item.foto_limpeza_url}"
+              onclick="abrirModal('${item.foto_limpeza_url}')"
+            >
+
+          </div>
+        `;
+      }).join("");
+    }
+
+    if(pendentes.length === 0){
+      listaPendentes.innerHTML = `<div class="vazio">Todos os ambientes foram limpos hoje.</div>`;
+    } else {
+      listaPendentes.innerHTML = pendentes.map(item => `
+        <div class="item">
+
+          <div class="topo">
+            <img
+              class="foto"
+              src="${item.foto_referencia_url || ""}"
+              onclick="abrirModal('${item.foto_referencia_url || ""}')"
+            >
+
+            <div class="info">
+              <strong>${item.nome}</strong>
+              <small>${item.unidade}</small>
+            </div>
+          </div>
+
+        </div>
+      `).join("");
+    }
+  }
+
+  carregar();
+
+  supabaseClient
+    .channel("realtime-limpeza")
+    .on(
+      "postgres_changes",
+      {
+        event:"*",
+        schema:"public",
+        table:"checklist_limpeza"
+      },
+      () => {
+        carregar();
+      }
+    )
+    .subscribe();
+</script>
+
+</body>
+</html>
