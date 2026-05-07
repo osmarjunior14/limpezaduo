@@ -1,1 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadastro de Ambientes - Limpeza</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body{
+      font-family:Arial, sans-serif;
+      background:#0f172a;
+      color:white;
+      padding:20px;
+      margin:0;
+    }
+
+    h1{
+      margin-bottom:20px;
+    }
+
+    .form{
+      background:#1e293b;
+      padding:16px;
+      border-radius:12px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      max-width:520px;
+      margin-bottom:24px;
+    }
+
+    input, select, button{
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      font-size:15px;
+    }
+
+    button{
+      background:#22c55e;
+      color:white;
+      font-weight:bold;
+      cursor:pointer;
+    }
+
+    .bloco{
+      background:#1e293b;
+      padding:16px;
+      border-radius:12px;
+      margin-top:16px;
+    }
+
+    .item{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 0;
+      border-bottom:1px solid #334155;
+    }
+
+    .item:last-child{
+      border-bottom:none;
+    }
+
+    .foto{
+      width:70px;
+      height:70px;
+      border-radius:10px;
+      object-fit:cover;
+      background:#0f172a;
+      flex-shrink:0;
+    }
+
+    .info{
+      flex:1;
+    }
+
+    .info strong{
+      display:block;
+      margin-bottom:4px;
+    }
+
+    .info small{
+      color:#94a3b8;
+    }
+
+    .vazio{
+      color:#94a3b8;
+      font-style:italic;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧼 Cadastro de Ambientes</h1>
+
+<div class="form">
+  <select id="unidade">
+    <option value="DUO HELIÓPOLIS">DUO HELIÓPOLIS</option>
+    <option value="DUO CENTRO">DUO CENTRO</option>
+  </select>
+
+  <input id="nome" placeholder="Nome do ambiente. Ex: Banheiro masculino">
+
+  <input id="foto" type="file" accept="image/*">
+
+  <button onclick="salvarAmbiente()">Salvar ambiente</button>
+</div>
+
+<h2>Ambientes cadastrados</h2>
+<div id="lista" class="bloco"></div>
+
+<script>
+  const supabaseUrl = "https://chyomxetiloktyepjbtk.supabase.co";
+  const supabaseKey = "sb_publishable_ZuuKIqmGotY08ZepHonxHg_3IOjs6pI";
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  function normalizarNomeArquivo(texto){
+    return String(texto || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  async function salvarAmbiente(){
+    const unidade = document.getElementById("unidade").value;
+    const nome = document.getElementById("nome").value.trim();
+    const fotoInput = document.getElementById("foto");
+
+    if(!nome){
+      alert("Informe o nome do ambiente.");
+      return;
+    }
+
+    if(!fotoInput.files || fotoInput.files.length === 0){
+      alert("Selecione uma foto do ambiente.");
+      return;
+    }
+
+    const arquivo = fotoInput.files[0];
+    const extensao = arquivo.name.split(".").pop().toLowerCase();
+    const nomeBase = normalizarNomeArquivo(`${unidade}-${nome}-${Date.now()}`);
+    const caminhoArquivo = `ambientes/${nomeBase}.${extensao}`;
+
+    const { error: uploadError } = await supabaseClient
+      .storage
+      .from("limpeza")
+      .upload(caminhoArquivo, arquivo, {
+        cacheControl: "3600",
+        upsert: false
+      });
+
+    if(uploadError){
+      console.log("Erro ao enviar foto:", uploadError);
+      alert("Erro ao enviar foto.");
+      return;
+    }
+
+    const { data: urlData } = supabaseClient
+      .storage
+      .from("limpeza")
+      .getPublicUrl(caminhoArquivo);
+
+    const fotoUrl = urlData.publicUrl;
+
+    const { error } = await supabaseClient
+      .from("ambientes_limpeza")
+      .insert([
+        {
+          nome,
+          unidade,
+          foto_referencia_url: fotoUrl,
+          ativo: true
+        }
+      ]);
+
+    if(error){
+      console.log("Erro ao salvar ambiente:", error);
+      alert("Erro ao salvar ambiente.");
+      return;
+    }
+
+    alert("Ambiente cadastrado com sucesso.");
+
+    document.getElementById("nome").value = "";
+    document.getElementById("foto").value = "";
+
+    carregarAmbientes();
+  }
+
+  async function carregarAmbientes(){
+    const { data, error } = await supabaseClient
+      .from("ambientes_limpeza")
+      .select("*")
+      .eq("ativo", true)
+      .order("unidade")
+      .order("nome");
+
+    const lista = document.getElementById("lista");
+
+    if(error){
+      console.log("Erro ao carregar ambientes:", error);
+      lista.innerHTML = `<div class="vazio">Erro ao carregar ambientes.</div>`;
+      return;
+    }
+
+    if(!data || data.length === 0){
+      lista.innerHTML = `<div class="vazio">Nenhum ambiente cadastrado.</div>`;
+      return;
+    }
+
+    lista.innerHTML = data.map(item => `
+      <div class="item">
+        <img class="foto" src="${item.foto_referencia_url || ""}" onerror="this.style.display='none'">
+        <div class="info">
+          <strong>${item.nome}</strong>
+          <small>${item.unidade}</small>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  carregarAmbientes();
+</script>
+
+</body>
+</html>
