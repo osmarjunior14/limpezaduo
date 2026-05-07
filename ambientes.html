@@ -207,7 +207,7 @@
     const nomeArquivo = `${Date.now()}-${foto.name}`;
 
     const { error: erroUpload } = await supabaseClient.storage
-      .from("ambientes")
+      .from("limpeza")
       .upload(nomeArquivo, foto);
 
     if(erroUpload){
@@ -217,7 +217,7 @@
     }
 
     const { data: urlData } = supabaseClient.storage
-      .from("ambientes")
+      .from("limpeza")
       .getPublicUrl(nomeArquivo);
 
     const fotoUrl = urlData.publicUrl;
