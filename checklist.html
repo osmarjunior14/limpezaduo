@@ -98,6 +98,27 @@
       padding:16px;
       font-style:italic;
     }
+
+    .modal-foto{
+      display:none;
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.82);
+      z-index:9999;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+.modal-foto img{
+  max-width:95vw;
+  max-height:90vh;
+  border-radius:14px;
+}
+
+.foto-ambiente{
+  cursor:pointer;
+}
   </style>
 </head>
 <body>
@@ -133,19 +154,24 @@
 
     if(error){
       console.log("Erro ao carregar ambientes:", error);
-      lista.innerHTML = `<div class="vazio">Erro ao carregar ambientes.</div>`;
+      lista.innerHTML = <div class="vazio">Erro ao carregar ambientes.</div>;
       return;
     }
 
     if(!data || data.length === 0){
-      lista.innerHTML = `<div class="vazio">Nenhum ambiente cadastrado.</div>`;
+      lista.innerHTML = <div class="vazio">Nenhum ambiente cadastrado.</div>;
       return;
     }
 
     lista.innerHTML = data.map(item => `
       <div class="ambiente" id="ambiente-${item.id}">
         <div class="topo">
-          <img class="foto" src="${item.foto_referencia_url || ""}" onerror="this.style.display='none'">
+         <img
+  class="foto foto-ambiente"
+  src="${item.foto_referencia_url || ""}"
+  onclick="abrirModalFoto('${item.foto_referencia_url || ""}')"
+  onerror="this.style.display='none'"
+>
           <div class="info">
             <strong>${item.nome}</strong>
             <small>${item.unidade}</small>
@@ -168,11 +194,11 @@
   }
 
   async function registrarLimpeza(ambienteId, nomeAmbiente){
-    const responsavel = document.getElementById(`resp-${ambienteId}`).value.trim();
-    const fotoInput = document.getElementById(`foto-${ambienteId}`);
-    const observacao = document.getElementById(`obs-${ambienteId}`).value.trim();
-    const botao = document.getElementById(`btn-${ambienteId}`);
-    const status = document.getElementById(`status-${ambienteId}`);
+    const responsavel = document.getElementById(resp-${ambienteId}).value.trim();
+    const fotoInput = document.getElementById(foto-${ambienteId});
+    const observacao = document.getElementById(obs-${ambienteId}).value.trim();
+    const botao = document.getElementById(btn-${ambienteId});
+    const status = document.getElementById(status-${ambienteId});
 
     if(!responsavel){
       alert("Informe o nome de quem limpou.");
@@ -189,8 +215,8 @@
 
     const arquivo = fotoInput.files[0];
     const extensao = arquivo.name.split(".").pop().toLowerCase();
-    const nomeBase = normalizarNomeArquivo(`${nomeAmbiente}-${responsavel}-${Date.now()}`);
-    const caminhoArquivo = `limpezas/${nomeBase}.${extensao}`;
+    const nomeBase = normalizarNomeArquivo(${nomeAmbiente}-${responsavel}-${Date.now()});
+    const caminhoArquivo = limpezas/${nomeBase}.${extensao};
 
     const { error: uploadError } = await supabaseClient
       .storage
@@ -236,12 +262,27 @@
       return;
     }
 
-    status.innerHTML = `<div class="feito">✅ Limpeza registrada com sucesso.</div>`;
+    status.innerHTML = <div class="feito">✅ Limpeza registrada com sucesso.</div>;
     botao.textContent = "Registrado";
   }
 
   carregarAmbientes();
+
+  function abrirModalFoto(url){
+  document.getElementById("imgModalFoto").src = url;
+  document.getElementById("modalFoto").style.display = "flex";
+}
+
+function fecharModalFoto(){
+  document.getElementById("modalFoto").style.display = "none";
+  document.getElementById("imgModalFoto").src = "";
+}
+  
 </script>
 
+  <div id="modalFoto" class="modal-foto" onclick="fecharModalFoto()">
+  <img id="imgModalFoto" src="">
+    
+</div>
 </body>
 </html>
