@@ -16,9 +16,7 @@
       margin:0;
     }
 
-    h1{
-      margin-bottom:8px;
-    }
+    h1{ margin-bottom:8px; }
 
     .sub{
       color:#94a3b8;
@@ -48,15 +46,17 @@
       flex-shrink:0;
     }
 
+    .foto-ambiente{
+      cursor:pointer;
+    }
+
     .info strong{
       display:block;
       font-size:18px;
       margin-bottom:4px;
     }
 
-    .info small{
-      color:#94a3b8;
-    }
+    .info small{ color:#94a3b8; }
 
     input, textarea, button{
       width:100%;
@@ -110,15 +110,11 @@
       padding:20px;
     }
 
-.modal-foto img{
-  max-width:95vw;
-  max-height:90vh;
-  border-radius:14px;
-}
-
-.foto-ambiente{
-  cursor:pointer;
-}
+    .modal-foto img{
+      max-width:95vw;
+      max-height:90vh;
+      border-radius:14px;
+    }
   </style>
 </head>
 <body>
@@ -127,6 +123,10 @@
 <div class="sub">Registre os ambientes limpos com foto.</div>
 
 <div id="lista"></div>
+
+<div id="modalFoto" class="modal-foto" onclick="fecharModalFoto()">
+  <img id="imgModalFoto" src="">
+</div>
 
 <script>
   const supabaseUrl = "https://chyomxetiloktyepjbtk.supabase.co";
@@ -137,9 +137,20 @@
     return String(texto || "")
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+  }
+
+  function abrirModalFoto(url){
+    if(!url) return;
+    document.getElementById("imgModalFoto").src = url;
+    document.getElementById("modalFoto").style.display = "flex";
+  }
+
+  function fecharModalFoto(){
+    document.getElementById("modalFoto").style.display = "none";
+    document.getElementById("imgModalFoto").src = "";
   }
 
   async function carregarAmbientes(){
@@ -154,24 +165,25 @@
 
     if(error){
       console.log("Erro ao carregar ambientes:", error);
-      lista.innerHTML = <div class="vazio">Erro ao carregar ambientes.</div>;
+      lista.innerHTML = `<div class="vazio">Erro ao carregar ambientes.</div>`;
       return;
     }
 
     if(!data || data.length === 0){
-      lista.innerHTML = <div class="vazio">Nenhum ambiente cadastrado.</div>;
+      lista.innerHTML = `<div class="vazio">Nenhum ambiente cadastrado.</div>`;
       return;
     }
 
     lista.innerHTML = data.map(item => `
       <div class="ambiente" id="ambiente-${item.id}">
         <div class="topo">
-         <img
-  class="foto foto-ambiente"
-  src="${item.foto_referencia_url || ""}"
-  onclick="abrirModalFoto('${item.foto_referencia_url || ""}')"
-  onerror="this.style.display='none'"
->
+          <img
+            class="foto foto-ambiente"
+            src="${item.foto_referencia_url || ""}"
+            onclick="abrirModalFoto('${item.foto_referencia_url || ""}')"
+            onerror="this.style.display='none'"
+          >
+
           <div class="info">
             <strong>${item.nome}</strong>
             <small>${item.unidade}</small>
@@ -194,11 +206,11 @@
   }
 
   async function registrarLimpeza(ambienteId, nomeAmbiente){
-    const responsavel = document.getElementById(resp-${ambienteId}).value.trim();
-    const fotoInput = document.getElementById(foto-${ambienteId});
-    const observacao = document.getElementById(obs-${ambienteId}).value.trim();
-    const botao = document.getElementById(btn-${ambienteId});
-    const status = document.getElementById(status-${ambienteId});
+    const responsavel = document.getElementById(`resp-${ambienteId}`).value.trim();
+    const fotoInput = document.getElementById(`foto-${ambienteId}`);
+    const observacao = document.getElementById(`obs-${ambienteId}`).value.trim();
+    const botao = document.getElementById(`btn-${ambienteId}`);
+    const status = document.getElementById(`status-${ambienteId}`);
 
     if(!responsavel){
       alert("Informe o nome de quem limpou.");
@@ -215,8 +227,8 @@
 
     const arquivo = fotoInput.files[0];
     const extensao = arquivo.name.split(".").pop().toLowerCase();
-    const nomeBase = normalizarNomeArquivo(${nomeAmbiente}-${responsavel}-${Date.now()});
-    const caminhoArquivo = limpezas/${nomeBase}.${extensao};
+    const nomeBase = normalizarNomeArquivo(`${nomeAmbiente}-${responsavel}-${Date.now()}`);
+    const caminhoArquivo = `limpezas/${nomeBase}.${extensao}`;
 
     const { error: uploadError } = await supabaseClient
       .storage
@@ -262,27 +274,12 @@
       return;
     }
 
-    status.innerHTML = <div class="feito">✅ Limpeza registrada com sucesso.</div>;
+    status.innerHTML = `<div class="feito">✅ Limpeza registrada com sucesso.</div>`;
     botao.textContent = "Registrado";
   }
 
   carregarAmbientes();
-
-  function abrirModalFoto(url){
-  document.getElementById("imgModalFoto").src = url;
-  document.getElementById("modalFoto").style.display = "flex";
-}
-
-function fecharModalFoto(){
-  document.getElementById("modalFoto").style.display = "none";
-  document.getElementById("imgModalFoto").src = "";
-}
-  
 </script>
 
-  <div id="modalFoto" class="modal-foto" onclick="fecharModalFoto()">
-  <img id="imgModalFoto" src="">
-    
-</div>
 </body>
 </html>
